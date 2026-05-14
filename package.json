@@ -1,0 +1,20 @@
+{
+  "name": "eztock-print-agent",
+  "module": "src/index.ts",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build --compile --outfile dist/eztock-print-agent src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "start": "bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "typescript": "5.9.3"
+  }
+}
