@@ -4,9 +4,11 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "description": "Eztock Print Agent — agente de impresión local para POS",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "build": "bun build --compile --outfile dist/eztock-print-agent src/index.ts",
+    "build": "bun build --compile --outfile dist/eztock-print-agent src/index.ts --target bun-linux-x64",
+    "build:all": "bun build --compile --outfile dist/eztock-print-agent-linux-x64 src/index.ts --target bun-linux-x64 && bun build --compile --outfile dist/eztock-print-agent-linux-arm64 src/index.ts --target bun-linux-arm64",
     "typecheck": "tsc --noEmit",
     "start": "bun run src/index.ts"
   },

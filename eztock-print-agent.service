@@ -1,0 +1,33 @@
+[Unit]
+Description=Eztock Print Agent
+Documentation=https://eztock.com/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/eztock-print-agent
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.eztock-agent
+ReadOnlyPaths=/usr/bin /usr/sbin /usr/lib /usr/lib64 /etc/cups /dev
+BindPaths=/dev/usb/lp0:/dev/usb/lp0
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=eztock-print-agent
+
+# Environment file (optional)
+EnvironmentFile=-%h/.eztock-agent/.env
+
+[Install]
+WantedBy=default.target
