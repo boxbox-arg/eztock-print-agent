@@ -9,20 +9,30 @@ import { JobRepository } from './queue/job-repository.ts';
 import { WebSocketClient } from './websocket-client.ts';
 import { HttpServer } from './http-server.ts';
 import { JobProcessor } from './job-processor.ts';
+import { PairingClient } from './pairing.ts';
 import type { AgentConfig, AgentStatus } from './types.ts';
 
 const VERSION = '0.1.0';
+
+// Parse CLI flags
+const args = process.argv.slice(2);
+const pairingCodeArg = (() => {
+  const idx = args.findIndex(a => a === '--pair');
+  return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
+})();
 
 function printHelp(): void {
   console.log(`
 Eztock Print Agent v${VERSION}
 
 Uso:
-  eztock-print-agent [--config /ruta/.env] [--help]
+  eztock-print-agent [--config /ruta/.env] [--pair CODIGO] [--help]
 
 Flags:
   --config <archivo>   Ruta al archivo .env de configuración
                        Default: ~/.eztock-agent/.env
+  --pair <codigo>      Vincular agente usando código de emparejamiento
+  --help               Muestra esta ayuda
 
 Variables de entorno / archivo .env:
   AGENT_ID              ID único del agente
@@ -44,7 +54,12 @@ API local (http://127.0.0.1:9100):
   GET  /jobs        Trabajos pendientes
   GET  /jobs/stats  Estadísticas de la cola
 
-Configuración inicial:
+Vinculación rápida:
+  1. En el panel Eztock: Impresión → Agentes → Vincular agente
+  2. Copiar el código de 6 caracteres
+  3. En la PC POS: eztock-print-agent --pair CODIGO
+
+O configuración manual:
   1. Crear archivo ~/.eztock-agent/.env con las variables requeridas
   2. O usar POST http://localhost:9100/configure con los datos
   3. Reiniciar el agente
@@ -238,6 +253,46 @@ async function main(): Promise<void> {
   }
 
   const config = await loadConfig();
+
+  // ── Pairing flow ────────────────────────────────
+  if (pairingCodeArg) {
+    console.log(`\n  🔗 Vinculando agente con código: ${pairingCodeArg}\n`);
+
+    if (!existsSync(config.dataDir)) {
+      await mkdir(config.dataDir, { recursive: true });
+    }
+
+    const client = new PairingClient(config.backendUrl);
+    try {
+      const result = await client.claimPairing(pairingCodeArg);
+      saveConfig({
+        agentId: result.agentId,
+        organizationId: result.organizationId,
+        branchId: result.branchId,
+        pairingToken: result.pairingToken,
+        backendUrl: config.backendUrl,
+        wsUrl: config.wsUrl,
+      }, config.dataDir);
+
+      console.log(`  ✅ Agente vinculado correctamente`);
+      console.log(`     ID:   ${result.agentId}`);
+      console.log(`     Org:  ${result.organizationId}`);
+      console.log(`     Suc:  ${result.branchId}`);
+      console.log(`\n  La configuración se guardó en ${config.dataDir}/.env`);
+      console.log(`  Re-iniciando agente...\n`);
+    } catch (err) {
+      console.error(`\n  ❌ Error de vinculación: ${err instanceof Error ? err.message : String(err)}`);
+      console.log(`\n  Asegurate de:`);
+      console.log(`  1. Generar un código en el panel Eztock (Impresión → Agentes → Vincular)`);
+      console.log(`  2. Usar el mismo código en este comando`);
+      console.log(`  3. Que el código no haya expirado`);
+      console.log(`\n  URLs del backend:`);
+      console.log(`     ${config.backendUrl}`);
+      console.log(`     ${config.wsUrl}\n`);
+      process.exit(1);
+    }
+  }
+
   const agent = new PrintAgent(config);
   await agent.start();
 }

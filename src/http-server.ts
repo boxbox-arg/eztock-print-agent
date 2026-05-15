@@ -173,16 +173,20 @@ export class HttpServer {
     ${configured
       ? `<div class="note configured">Agente configurado y funcionando.</div>`
       : `<div class="note">
-        <strong>Agente sin configurar.</strong> Para vincularlo al panel Eztock:<br><br>
-        <strong>Opción 1 — Archivo .env:</strong><br>
+        <strong>Agente sin configurar.</strong><br><br>
+        <strong>Opción 1 — Vinculación rápida (recomendada):</strong><br>
+        1. En el panel Eztock: <strong>Impresión → Agentes → Vincular agente</strong><br>
+        2. Copiar el código de 6 caracteres que aparece<br>
+        3. En la terminal de esta PC: <code>eztock-print-agent --pair <em>CODIGO</em></code><br><br>
+        <strong>Opción 2 — Archivo .env:</strong><br>
         Crear <code>${this.config.dataDir}/.env</code> con:<br>
         <code>AGENT_ID=uuid</code><br>
         <code>AGENT_ORGANIZATION_ID=uuid</code><br>
         <code>AGENT_BRANCH_ID=uuid</code><br>
         <code>AGENT_PAIRING_TOKEN=token</code><br><br>
-        <strong>Opción 2 — POST via API:</strong><br>
+        <strong>Opción 3 — POST via API:</strong><br>
         <code>curl -X POST http://localhost:${this.config.httpPort}/configure -H 'Content-Type: application/json' -d '{...}'</code><br><br>
-        Luego reiniciar el agente.
+        En todos los casos, reiniciar el agente después de configurar.
       </div>`
     }
 
