@@ -225,28 +225,98 @@ export class HttpServer {
 
   private renderConfigured(status: AgentStatus): string {
     const osColor = status.isConnected ? '#16a34a' : '#dc2626';
+    const printers = this.getPrinters();
+
+    const printerRows = printers.length === 0
+      ? `<tr><td colspan="3" style="text-align:center;padding:1rem;color:#94a3b8">No se detectaron impresoras</td></tr>`
+      : printers.map(p => {
+          const color = p.status === 'online' ? '#16a34a' : p.status === 'error' ? '#dc2626' : '#ca8a04';
+          const icon = p.status === 'online' ? '✅' : p.status === 'error' ? '❌' : '⚠️';
+          return `<tr>
+            <td style="padding:.5rem 0">${p.name}${p.isDefault ? ' <span style="font-size:.7rem;color:#94a3b8">(default)</span>' : ''}</td>
+            <td style="padding:.5rem 0;color:#94a3b8">${p.connectionType === 'network' ? '🌐 Red' : p.connectionType === 'usb' ? '🔌 USB' : p.connectionType}</td>
+            <td style="padding:.5rem 0;text-align:right"><span style="color:${color};font-weight:600">${icon} ${p.status}</span></td>
+          </tr>`;
+        }).join('');
+
+    const warnings: string[] = [];
+    if (!status.isConnected) warnings.push('❌ Desconectado del backend');
+    if (printers.length === 0) warnings.push('⚠️ No se detectaron impresoras');
+
+    const hasWarnings = warnings.length > 0;
+
     return `
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <h1>Eztock Print Agent</h1>
-          <p class="subtitle">${status.hostname} — ${status.os}</p>
+          <p class="subtitle" id="agent-subtitle">${status.hostname} — ${status.os}</p>
         </div>
         <span style="background:${osColor};color:#fff;padding:4px 12px;border-radius:6px;font-size:.8rem;font-weight:600">${status.isConnected ? 'ONLINE' : 'OFFLINE'}</span>
       </div>
-      <div class="grid">
-        <div><div class="label">Agent ID</div><div class="value">${status.agentId}</div></div>
-        <div><div class="label">Uptime</div><div class="value">${Math.floor(status.uptime)}s</div></div>
-        <div><div class="label">Printers</div><div class="value">${status.printers.length}</div></div>
-        <div><div class="label">Queue</div><div class="value">${status.queueStats.pending + status.queueStats.queued + status.queueStats.printing} activos</div></div>
+
+      <div class="grid" style="margin-top:1rem">
+        <div><div class="label">Agent ID</div><div class="value" style="font-size:.8rem">${status.agentId}</div></div>
+        <div><div class="label">Uptime</div><div class="value">${Math.floor(status.uptime / 60)}m ${Math.floor(status.uptime % 60)}s</div></div>
+        <div><div class="label">Queue</div><div class="value" id="queue-stats">${status.queueStats.pending + status.queueStats.queued + status.queueStats.printing} activos · ${status.queueStats.completed} ok</div></div>
       </div>
+
+      ${hasWarnings ? `<div class="section" style="padding-bottom:.5rem">
+        ${warnings.map(w => `<p style="color:#f59e0b;font-size:.85rem;margin:.25rem 0">${w}</p>`).join('')}
+      </div>` : ''}
+
       <div class="section">
-        <p style="color:#16a34a;font-weight:600">✅ Agente configurado y funcionando.</p>
-        <ul style="margin-top:.75rem;list-style:none">
-          <li style="margin:.25rem 0;font-size:.85rem">→ GET /status — Estado completo</li>
-          <li style="margin:.25rem 0;font-size:.85rem">→ GET /printers — Impresoras</li>
-          <li style="margin:.25rem 0;font-size:.85rem">→ GET /health — Health check</li>
-        </ul>
-      </div>`;
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 style="font-size:1rem;color:#f8fafc">Impresoras detectadas</h2>
+          <span style="font-size:.8rem;color:#94a3b8" id="printer-count">${printers.length}</span>
+        </div>
+        <table style="width:100%;margin-top:.5rem;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid #334155;font-size:.75rem;color:#94a3b8;text-transform:uppercase">
+              <th style="text-align:left;padding:.5rem 0;font-weight:500">Nombre</th>
+              <th style="text-align:left;padding:.5rem 0;font-weight:500">Tipo</th>
+              <th style="text-align:right;padding:.5rem 0;font-weight:500">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="printer-table-body">
+            ${printerRows}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section" style="padding-bottom:0">
+        <p style="font-size:.75rem;color:#64748b">
+          La página se actualiza automáticamente cada 5 segundos.
+          <a href="/" style="color:#3b82f6;text-decoration:none">↻ Recargar ahora</a>
+        </p>
+      </div>
+
+      <script>
+        setInterval(async () => {
+          try {
+            const res = await fetch('/status');
+            const st = await res.json();
+
+            document.getElementById('agent-subtitle').textContent = st.hostname + ' — ' + st.os;
+            document.getElementById('queue-stats').textContent =
+              (st.queueStats.pending + st.queueStats.queued + st.queueStats.printing) + ' activos · ' + st.queueStats.completed + ' ok';
+            document.getElementById('printer-count').textContent = st.printers.length;
+
+            const tbody = document.getElementById('printer-table-body');
+            if (st.printers.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:1rem;color:#94a3b8">No se detectaron impresoras</td></tr>';
+            } else {
+              tbody.innerHTML = st.printers.map(p => {
+                const c = p.status === 'online' ? '#16a34a' : p.status === 'error' ? '#dc2626' : '#ca8a04';
+                const ic = p.status === 'online' ? '✅' : p.status === 'error' ? '❌' : '⚠️';
+                return '<tr><td style="padding:.5rem 0">' + p.name + (p.isDefault ? ' <span style="font-size:.7rem;color:#94a3b8">(default)</span>' : '') +
+                  '</td><td style="padding:.5rem 0;color:#94a3b8">' +
+                  (p.connectionType === 'network' ? '🌐 Red' : p.connectionType === 'usb' ? '🔌 USB' : p.connectionType) +
+                  '</td><td style="padding:.5rem 0;text-align:right"><span style="color:' + c + ';font-weight:600">' + ic + ' ' + p.status + '</span></td></tr>';
+              }).join('');
+            }
+          } catch {}
+        }, 5000);
+      </script>`;
   }
 
   private renderUnconfigured(): string {
