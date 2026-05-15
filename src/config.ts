@@ -60,13 +60,22 @@ export async function loadConfig(): Promise<AgentConfig> {
     return parsed;
   }
 
+  const rawBackendUrl = getEnv('AGENT_BACKEND_URL', 'https://api.eztock.com')
+  const rawWsUrl = process.env.AGENT_WS_URL ?? fileEnv.AGENT_WS_URL
+
+  // Derive WS URL from backend URL if not explicitly set
+  const wsUrl = rawWsUrl || rawBackendUrl
+    .replace(/^http:/, 'ws:')
+    .replace(/^https:/, 'wss:')
+    .replace(/\/+$/, '') + '/ws/print-agent'
+
   return {
     agentId: getEnv('AGENT_ID'),
     organizationId: getEnv('AGENT_ORGANIZATION_ID'),
     branchId: getEnv('AGENT_BRANCH_ID'),
     pairingToken: getEnv('AGENT_PAIRING_TOKEN'),
-    backendUrl: getEnv('AGENT_BACKEND_URL', 'https://api.eztock.com'),
-    wsUrl: getEnv('AGENT_WS_URL', 'wss://api.eztock.com/ws/print-agent'),
+    backendUrl: rawBackendUrl,
+    wsUrl,
     httpPort: getEnvInt('AGENT_HTTP_PORT', 9100),
     dataDir,
     logLevel: (process.env.AGENT_LOG_LEVEL ?? fileEnv.AGENT_LOG_LEVEL ?? 'info') as AgentConfig['logLevel'],
