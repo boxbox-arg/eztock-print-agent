@@ -56,14 +56,25 @@ echo ""
 
 # ── Copy binary ──────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BINARY_SRC="${SCRIPT_DIR}/${AGENT_NAME}"
+BINARY_SRC=""
 
-if [ -f "${BINARY_SRC}" ]; then
+# Check multiple possible locations
+for candidate in \
+  "${SCRIPT_DIR}/dist/${AGENT_NAME}" \
+  "${SCRIPT_DIR}/${AGENT_NAME}" \
+  "${SCRIPT_DIR}/../dist/${AGENT_NAME}"; do
+  if [ -f "$candidate" ]; then
+    BINARY_SRC="$candidate"
+    break
+  fi
+done
+
+if [ -n "$BINARY_SRC" ]; then
   log "Copiando binario desde ${BINARY_SRC} a ${BIN_DIR}/${AGENT_NAME}"
   sudo cp "${BINARY_SRC}" "${BIN_DIR}/${AGENT_NAME}"
   sudo chmod +x "${BIN_DIR}/${AGENT_NAME}"
 else
-  err "Binario no encontrado en ${BINARY_SRC}. Asegurate de tener el binario compilado al lado de este script."
+  err "Binario no encontrado. Compilalo primero: cd ${SCRIPT_DIR} && bun run build"
 fi
 
 log "Binario instalado: ${BIN_DIR}/${AGENT_NAME}"
